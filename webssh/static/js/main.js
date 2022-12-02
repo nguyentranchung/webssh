@@ -45,7 +45,7 @@ jQuery(function($){
       default_title = '⚡️FlashVPS Console',
       title_element = document.querySelector('title'),
       form_id = '#connect',
-      debug = document.querySelector(form_id).noValidate,
+      debug = document.querySelector(form_id)?.noValidate,
       custom_font = document.fonts ? document.fonts.values().next().value : undefined,
       default_fonts,
       DISCONNECTED = 0,
@@ -67,32 +67,6 @@ jQuery(function($){
     window.opener.postMessage({ ssh_console: true })
   }
 
-  function store_items(names, data) {
-    var i, name, value;
-
-    for (i = 0; i < names.length; i++) {
-      name = names[i];
-      value = data.get(name);
-      if (value){
-        window.localStorage.setItem(name, value);
-      }
-    }
-  }
-
-
-  function restore_items(names) {
-    var i, name, value;
-
-    for (i=0; i < names.length; i++) {
-      name = names[i];
-      value = window.localStorage.getItem(name);
-      if (value) {
-        $('#'+name).val(value);
-      }
-    }
-  }
-
-
   function populate_form(data) {
     var names = form_keys.concat(['passphrase']),
         i, name;
@@ -100,53 +74,6 @@ jQuery(function($){
     for (i=0; i < names.length; i++) {
       name = names[i];
       $('#'+name).val(data.get(name));
-    }
-  }
-
-
-  function get_object_length(object) {
-    return Object.keys(object).length;
-  }
-
-
-  function decode_uri_component(uri) {
-    try {
-      return decodeURIComponent(uri);
-    } catch(e) {
-      console.error(e);
-    }
-    return '';
-  }
-
-
-  function decode_password(encoded) {
-    try {
-      return window.atob(encoded);
-    } catch (e) {
-       console.error(e);
-    }
-    return null;
-  }
-
-
-  function parse_url_data(string, form_keys, opts_keys, form_map, opts_map) {
-    var i, pair, key, val,
-        arr = string.split('&');
-
-    for (i = 0; i < arr.length; i++) {
-      pair = arr[i].split('=');
-      key = pair[0].trim().toLowerCase();
-      val = pair.slice(1).join('=').trim();
-
-      if (form_keys.indexOf(key) >= 0) {
-        form_map[key] = val;
-      } else if (opts_keys.indexOf(key) >=0) {
-        opts_map[key] = val;
-      }
-    }
-
-    if (form_map.password) {
-      form_map.password = decode_password(form_map.password);
     }
   }
 
@@ -648,77 +575,6 @@ jQuery(function($){
     return result;
   }
 
-  // Fix empty input file ajax submission error for safari 11.x
-  function disable_file_inputs(inputs) {
-    var i, input;
-
-    for (i = 0; i < inputs.length; i++) {
-      input = inputs[i];
-      if (input.files.length === 0) {
-        input.setAttribute('disabled', '');
-      }
-    }
-  }
-
-
-  function enable_file_inputs(inputs) {
-    var i;
-
-    for (i = 0; i < inputs.length; i++) {
-      inputs[i].removeAttribute('disabled');
-    }
-  }
-
-
-  function connect_without_options() {
-    // use data from the form
-    var form = document.querySelector(form_id),
-        inputs = form.querySelectorAll('input[type="file"]'),
-        url = form.action,
-        data, pk;
-
-    disable_file_inputs(inputs);
-    data = new FormData(form);
-    pk = data.get('privatekey');
-    enable_file_inputs(inputs);
-
-    function ajax_post() {
-      status.text('');
-      button.prop('disabled', true);
-
-      $.ajax({
-          url: url,
-          type: 'post',
-          data: data,
-          complete: ajax_complete_callback,
-          cache: false,
-          contentType: false,
-          processData: false
-      });
-    }
-
-    var result = validate_form_data(data);
-    if (!result.valid) {
-      log_status(result.errors.join('\n'));
-      return;
-    }
-
-    if (pk && pk.size && !debug) {
-      read_file_as_text(pk, function(text) {
-        if (text === undefined) {
-            log_status('Invalid private key: ' + pk.name);
-        } else {
-          ajax_post();
-        }
-      });
-    } else {
-      ajax_post();
-    }
-
-    return result;
-  }
-
-
   function connect_with_options(data) {
     // use data from the arguments
     var form = document.querySelector(form_id),
@@ -751,55 +607,9 @@ jQuery(function($){
   }
 
 
-  function connect(hostname, port, username, password, privatekey, passphrase, totp) {
-    // for console use
-    var result, opts;
-
-    if (state !== DISCONNECTED) {
-      console.log(messages[state]);
-      return;
-    }
-
-    if (hostname === undefined) {
-      result = connect_without_options();
-    } else {
-      if (typeof hostname === 'string') {
-        opts = {
-          hostname: hostname,
-          port: port,
-          username: username,
-          password: password,
-          privatekey: privatekey,
-          passphrase: passphrase,
-          totp: totp
-        };
-      } else {
-        opts = hostname;
-      }
-
-      result = connect_with_options(opts);
-    }
-
-    if (result) {
-      state = CONNECTING;
-      default_title = result.title;
-      if (hostname) {
-        validated_form_data = result.data;
-      }
-      store_items(fields, result.data);
-    }
-  }
-
-  wssh.connect = connect;
-
-  $(form_id).submit(function(event){
-    event.preventDefault();
-    connect();
-  });
-
-
   function cross_origin_connect(event)
   {
+    console.log(event.origin);
     try {
       event_origin = event.origin;
       connect_with_options(event.data);
@@ -819,29 +629,4 @@ jQuery(function($){
       }
     );
   }
-
-
-  parse_url_data(
-    decode_uri_component(window.location.search.substring(1)) + '&' + decode_uri_component(window.location.hash.substring(1)),
-    form_keys, opts_keys, url_form_data, url_opts_data
-  );
-  // console.log(url_form_data);
-  // console.log(url_opts_data);
-
-  if (url_opts_data.term) {
-    term_type.val(url_opts_data.term);
-  }
-
-  if (url_form_data.password === null) {
-    log_status('Password via url must be encoded in base64.');
-  } else {
-    if (get_object_length(url_form_data)) {
-      waiter.show();
-      connect(url_form_data);
-    } else {
-      restore_items(fields);
-      form_container.show();
-    }
-  }
-
 });
