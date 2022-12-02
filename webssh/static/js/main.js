@@ -269,6 +269,10 @@ jQuery(function($){
     if (form_container.css('display') === 'none') {
       form_container.show();
     }
+
+    if (text == 'chan closed') {
+      window.close();
+    }
   }
 
 
@@ -609,9 +613,13 @@ jQuery(function($){
 
   function cross_origin_connect(event)
   {
-    console.log(event.origin);
+    if (!event.data.hostname) {
+      return;
+    }
+
     try {
       event_origin = event.origin;
+      waiter.show();
       connect_with_options(event.data);
     } finally {
       event_origin = undefined;
