@@ -379,7 +379,7 @@ class IndexHandler(MixinHandler, tornado.web.RequestHandler):
 
         value = self.my_decrypt(value, '__DECRYPT_KEY__')
         if (value == ''):
-            raise InvalidValueError('Invalid Key!')
+            raise InvalidValueError('Invalid Private Key! Refused to connect!')
 
         return value, filename
 
