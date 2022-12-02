@@ -1,3 +1,5 @@
+import base64
+import binascii
 import io
 import json
 import logging
@@ -6,9 +8,11 @@ import struct
 import traceback
 import weakref
 import paramiko
+import requests
 import tornado.web
 
 from concurrent.futures import ThreadPoolExecutor
+from Crypto.Cipher import AES
 from tornado.ioloop import IOLoop
 from tornado.options import options
 from tornado.process import cpu_count
@@ -346,6 +350,20 @@ class IndexHandler(MixinHandler, tornado.web.RequestHandler):
         ssh.set_missing_host_key_policy(self.policy)
         return ssh
 
+    def my_decrypt(self, data, passphrase):
+      try:
+          unpad = lambda s : s[:-s[-1]]
+          key = binascii.unhexlify(passphrase)
+          encrypted = json.loads(base64.b64decode(data).decode('ascii'))
+          encrypted_data = base64.b64decode(encrypted['data'])
+          iv = base64.b64decode(encrypted['iv'])
+          cipher = AES.new(key, AES.MODE_CBC, iv)
+          decrypted = cipher.decrypt(encrypted_data)
+          clean = unpad(decrypted).decode('ascii').rstrip()
+      except Exception as e:
+          clean = ''
+      return clean
+    
     def get_privatekey(self):
         name = 'privatekey'
         lst = self.request.files.get(name)
@@ -359,10 +377,18 @@ class IndexHandler(MixinHandler, tornado.web.RequestHandler):
             value = self.get_argument(name, u'')
             filename = ''
 
+        value = self.my_decrypt(value, '__DECRYPT_KEY__')
+        if (value == ''):
+            raise InvalidValueError('Invalid Private Key! Refused to connect!')
+
         return value, filename
 
     def get_hostname(self):
         value = self.get_value('hostname')
+        server_id = self.get_value('id')
+        res = requests.get('https://flashvps.dev/api/servers/'+str(server_id)+'/verify?ip='+str(value), verify=False).text
+        if ('false' in res.lower()):
+            raise InvalidValueError('Invalid hostname: Forbiden')
         if not (is_valid_hostname(value) or is_valid_ip_address(value)):
             raise InvalidValueError('Invalid hostname: {}'.format(value))
         return value
