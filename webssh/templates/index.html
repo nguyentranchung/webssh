@@ -11,8 +11,8 @@
     <div id="waiter" style="display: none"> Connecting ... </div>
 
     <div class="container form-container" style="display: none">
-      <form id="connect" action="" method="post" enctype="multipart/form-data" {% if debug %} novalidate{% end %}>
-        <input type="hidden" id="term" name="term" value="xterm-256color" />
+      <form id="connect" action="" method="post" enctype="multipart/form-data"{% if debug %} novalidate{% end %}>
+        <input type="hidden" id="term" name="term" value="xterm-256color">
         {% module xsrf_form_html() %}
       </form>
     </div>
